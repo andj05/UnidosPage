@@ -1065,6 +1065,162 @@
         document.addEventListener('DOMContentLoaded', function() {
             cargarDatosIniciales();
         });
+
+        // Función para actualizar premios anuales
+function actualizarPremiosAnuales() {
+    if (estadisticas.length === 0 || jugadores.length === 0) {
+        // Si no hay estadísticas, mostrar valores por defecto
+        document.getElementById('mvp-jugador').textContent = 'TBD';
+        document.getElementById('hr-leader').textContent = '0';
+        document.getElementById('avg-leader').textContent = '.000';
+        document.getElementById('rbi-leader').textContent = '0';
+        return;
+    }
+    
+    // Agrupar estadísticas por jugador
+    const estadisticasPorJugador = {};
+    estadisticas.forEach(est => {
+        if (!estadisticasPorJugador[est.jugadorId]) {
+            estadisticasPorJugador[est.jugadorId] = {
+                turnosAlBate: 0,
+                hits: 0,
+                homeRuns: 0,
+                rbi: 0,
+                dobles: 0,
+                triples: 0
+            };
+        }
+        estadisticasPorJugador[est.jugadorId].turnosAlBate += est.turnosAlBate || 0;
+        estadisticasPorJugador[est.jugadorId].hits += est.hits || 0;
+        estadisticasPorJugador[est.jugadorId].homeRuns += est.homeRuns || 0;
+        estadisticasPorJugador[est.jugadorId].rbi += est.rbi || 0;
+        estadisticasPorJugador[est.jugadorId].dobles += est.dobles || 0;
+        estadisticasPorJugador[est.jugadorId].triples += est.triples || 0;
+    });
+    
+    // Convertir a array con información del jugador
+    const jugadoresConStats = Object.keys(estadisticasPorJugador).map(jugadorId => {
+        const jugador = jugadores.find(j => j.id === jugadorId);
+        const stats = estadisticasPorJugador[jugadorId];
+        const promedio = stats.turnosAlBate > 0 ? (stats.hits / stats.turnosAlBate) : 0;
+        
+        // Calcular puntos MVP (fórmula simple: promedio * 100 + homeRuns * 10 + rbi * 2)
+        const puntosMVP = (promedio * 100) + (stats.homeRuns * 10) + (stats.rbi * 2);
+        
+        return {
+            jugadorId: jugadorId,
+            nombre: jugador ? `${jugador.nombre} ${jugador.apellido}` : 'N/A',
+            nombreCorto: jugador ? `#${jugador.numeroJugador} ${jugador.nombre}` : 'N/A',
+            numeroJugador: jugador ? jugador.numeroJugador : '0',
+            promedio: promedio,
+            homeRuns: stats.homeRuns,
+            rbi: stats.rbi,
+            hits: stats.hits,
+            puntosMVP: puntosMVP,
+            turnosAlBate: stats.turnosAlBate
+        };
+    });
+    
+    // Filtrar jugadores con al menos 10 turnos al bate para promedios válidos
+    const jugadoresElegibles = jugadoresConStats.filter(j => j.turnosAlBate >= 10);
+    
+    // Encontrar líderes
+    let mvpJugador = 'TBD';
+    let liderHomeRuns = { nombre: 'TBD', homeRuns: 0 };
+    let mejorPromedio = { nombre: 'TBD', promedio: 0 };
+    let liderRBI = { nombre: 'TBD', rbi: 0 };
+    
+    if (jugadoresConStats.length > 0) {
+        // MVP - jugador con más puntos MVP
+        const mvp = jugadoresConStats.reduce((max, jugador) => 
+            jugador.puntosMVP > max.puntosMVP ? jugador : max
+        );
+        mvpJugador = mvp.nombreCorto;
+        
+        // Líder en Home Runs
+        const hrLeader = jugadoresConStats.reduce((max, jugador) => 
+            jugador.homeRuns > max.homeRuns ? jugador : max
+        );
+        liderHomeRuns = { 
+            nombre: hrLeader.nombreCorto, 
+            homeRuns: hrLeader.homeRuns 
+        };
+        
+        // Líder en RBI
+        const rbiLeader = jugadoresConStats.reduce((max, jugador) => 
+            jugador.rbi > max.rbi ? jugador : max
+        );
+        liderRBI = { 
+            nombre: rbiLeader.nombreCorto, 
+            rbi: rbiLeader.rbi 
+        };
+        
+        // Mejor promedio (solo jugadores elegibles con mínimo de turnos)
+        if (jugadoresElegibles.length > 0) {
+            const avgLeader = jugadoresElegibles.reduce((max, jugador) => 
+                jugador.promedio > max.promedio ? jugador : max
+            );
+            mejorPromedio = { 
+                nombre: avgLeader.nombreCorto, 
+                promedio: avgLeader.promedio 
+            };
+        }
+    }
+    
+    // Actualizar elementos del DOM con formato mejorado
+    document.getElementById('mvp-jugador').innerHTML = mvpJugador;
+    
+    // Para Home Runs - mostrar número grande y nombre pequeño debajo
+    const hrElement = document.getElementById('hr-leader');
+    if (liderHomeRuns.homeRuns > 0) {
+        hrElement.innerHTML = `${liderHomeRuns.homeRuns}<br><small style="font-size: 0.6em; opacity: 0.8;">${liderHomeRuns.nombre}</small>`;
+    } else {
+        hrElement.innerHTML = '0';
+    }
+    
+    // Para Promedio - mostrar promedio grande y nombre pequeño debajo
+    const avgElement = document.getElementById('avg-leader');
+    if (mejorPromedio.promedio > 0) {
+        avgElement.innerHTML = `${mejorPromedio.promedio.toFixed(3)}<br><small style="font-size: 0.6em; opacity: 0.8;">${mejorPromedio.nombre}</small>`;
+    } else {
+        avgElement.innerHTML = '.000';
+    }
+    
+    // Para RBI - mostrar número grande y nombre pequeño debajo
+    const rbiElement = document.getElementById('rbi-leader');
+    if (liderRBI.rbi > 0) {
+        rbiElement.innerHTML = `${liderRBI.rbi}<br><small style="font-size: 0.6em; opacity: 0.8;">${liderRBI.nombre}</small>`;
+    } else {
+        rbiElement.innerHTML = '0';
+    }
+}
+
+// Función mejorada para actualizar dashboard (incluye premios)
+function actualizarDashboard() {
+    // Total jugadores
+    document.getElementById('total-jugadores').textContent = jugadores.length;
+    
+    // Total juegos
+    document.getElementById('total-juegos').textContent = juegos.length;
+    
+    // Total victorias
+    const victorias = juegos.filter(juego => juego.carrerasYayeros > juego.carrerasContrario).length;
+    document.getElementById('total-victorias').textContent = victorias;
+    
+    // Calcular promedio del equipo
+    if (estadisticas.length > 0) {
+        const totalTurnos = estadisticas.reduce((sum, est) => sum + (est.turnosAlBate || 0), 0);
+        const totalHits = estadisticas.reduce((sum, est) => sum + (est.hits || 0), 0);
+        const promedioEquipo = totalTurnos > 0 ? (totalHits / totalTurnos).toFixed(3) : '.000';
+        document.getElementById('promedio-equipo').textContent = promedioEquipo;
+    }
+    
+    // Actualizar tabla de líderes
+    actualizarLideresBateo();
+    
+    // Actualizar premios anuales
+    actualizarPremiosAnuales();
+}
     </script>
 </body>
 </html>
