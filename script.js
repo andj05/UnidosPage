@@ -524,33 +524,38 @@
         });
 
         document.getElementById('form-juego').addEventListener('submit', async (e) => {
-            e.preventDefault();
+    e.preventDefault();
 
-            try {
-                const juegoData = {
-                    fecha: firebase.firestore.Timestamp.fromDate(new Date(document.getElementById('fecha-juego').value)),
-                    equipoContrarioId: document.getElementById('equipo-contrario').value,
-                    carrerasYayeros: parseInt(document.getElementById('carreras-yayeros').value),
-                    carrerasContrario: parseInt(document.getElementById('carreras-contrario').value),
-                    ubicacion: document.getElementById('ubicacion-juego').value,
-                    esLocal: document.getElementById('es-local').value === 'true',
-                    ganado: parseInt(document.getElementById('carreras-yayeros').value) > parseInt(document.getElementById('carreras-contrario').value),
-                    innings: 7
-                };
+    try {
+        const fechaInput = document.getElementById('fecha-juego').value;
+        const [año, mes, dia] = fechaInput.split('-');
+        const fechaCorrecta = new Date(parseInt(año), parseInt(mes) - 1, parseInt(dia));
 
-                await db.collection('juegos').add(juegoData);
+        const juegoData = {
+            fecha: firebase.firestore.Timestamp.fromDate(fechaCorrecta),
+            
+            equipoContrarioId: document.getElementById('equipo-contrario').value,
+            carrerasYayeros: parseInt(document.getElementById('carreras-yayeros').value),
+            carrerasContrario: parseInt(document.getElementById('carreras-contrario').value),
+            ubicacion: document.getElementById('ubicacion-juego').value,
+            esLocal: document.getElementById('es-local').value === 'true',
+            ganado: parseInt(document.getElementById('carreras-yayeros').value) > parseInt(document.getElementById('carreras-contrario').value),
+            innings: 7
+        };
 
-                mostrarAlerta('Juego registrado exitosamente', 'success');
-                document.getElementById('form-juego').reset();
+        await db.collection('juegos').add(juegoData);
 
-                await cargarJuegos();
-                actualizarDashboard();
+        mostrarAlerta('Juego registrado exitosamente', 'success');
+        document.getElementById('form-juego').reset();
 
-            } catch (error) {
-                console.error('Error registrando juego:', error);
-                mostrarAlerta('Error al registrar juego', 'error');
-            }
-        });
+        await cargarJuegos();
+        actualizarDashboard();
+
+    } catch (error) {
+        console.error('Error registrando juego:', error);
+        mostrarAlerta('Error al registrar juego', 'error');
+    }
+});
 
         document.getElementById('form-estadisticas').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -602,17 +607,192 @@
                 alerta.remove();
             }, 5000);
         }
-
+        //Ojo : Hay qye terminar eso 
         // Funciones placeholder para acciones adicionales
         function editarJugador(jugadorId) {
             // Implementar edición de jugador
             console.log('Editar jugador:', jugadorId);
         }
 
-        function verDetallesJuego(juegoId) {
-            // Implementar vista de detalles del juego
-            console.log('Ver detalles del juego:', juegoId);
+        async function verDetallesJuego(juegoId) {
+    try {
+        // Obtener datos del juego
+        const juegoDoc = await db.collection('juegos').doc(juegoId).get();
+        if (!juegoDoc.exists) {
+            mostrarAlerta('Juego no encontrado', 'error');
+            return;
         }
+        
+        const juego = { id: juegoDoc.id, ...juegoDoc.data() };
+        
+        // Obtener estadísticas de jugadores para este juego
+        const estadisticasSnapshot = await db.collection('estadisticas-bateo')
+            .where('juegoId', '==', juegoId)
+            .get();
+        
+        if (estadisticasSnapshot.empty) {
+            mostrarAlerta('No hay estadísticas registradas para este juego', 'info');
+            return;
+        }
+        
+        // Obtener datos de jugadores
+        const jugadoresConEstadisticas = [];
+        
+        for (const doc of estadisticasSnapshot.docs) {
+            const estadistica = { id: doc.id, ...doc.data() };
+            
+            // Obtener datos del jugador
+            const jugadorDoc = await db.collection('jugadores').doc(estadistica.jugadorId).get();
+            if (jugadorDoc.exists) {
+                const jugador = jugadorDoc.data();
+                jugadoresConEstadisticas.push({
+                    nombre: jugador.nombre,
+                    posicion: jugador.posicion,
+                    turnosAlBate: estadistica.turnosAlBate || 0,
+                    hits: estadistica.hits || 0,
+                    sencillos: estadistica.sencillos || 0,
+                    dobles: estadistica.dobles || 0,
+                    triples: estadistica.triples || 0,
+                    homeRuns: estadistica.homeRuns || 0,
+                    rbi: estadistica.rbi || 0
+                });
+            }
+        }
+        
+        // Mostrar modal simple
+        mostrarModalSimple(juego, jugadoresConEstadisticas);
+        
+    } catch (error) {
+        console.error('Error cargando detalles del juego:', error);
+        mostrarAlerta('Error al cargar detalles del juego', 'error');
+    }
+}
+
+function mostrarModalSimple(juego, jugadores) {
+    const fecha = juego.fecha.toDate().toLocaleDateString('es-ES', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+    const resultado = juego.ganado ? 'VICTORIA' : 'DERROTA';
+    const resultadoClass = juego.ganado ? 'victoria' : 'derrota';
+    
+    const modalHTML = `
+        <div id="modal-detalles" class="modal-overlay" onclick="cerrarModalSimple(event)">
+            <div class="modal-detalle">
+                <div class="modal-header-detalle">
+                    <div class="titulo-juego">
+                        <h2>⚾ Detalles del Juego</h2>
+                        <p class="fecha-juego">${fecha}</p>
+                    </div>
+                    <button class="btn-cerrar" onclick="cerrarModalSimple()">&times;</button>
+                </div>
+                
+                <div class="contenido-modal">
+                    <div class="resultado-juego">
+                        <div class="marcador">
+                            <div class="equipo-casa">
+                                <h3>🏟️ Yayeros</h3>
+                                <div class="score-grande">${juego.carrerasYayeros}</div>
+                            </div>
+                            <div class="vs-separator">VS</div>
+                            <div class="equipo-visitante">
+                                <h3>🚌 Contrario</h3>
+                                <div class="score-grande">${juego.carrerasContrario}</div>
+                            </div>
+                        </div>
+                        <div class="resultado-badge ${resultadoClass}">
+                            ${resultado}
+                        </div>
+                    </div>
+                    
+                    <div class="info-juego">
+                        <div class="info-item">
+                            <span class="icono">📍</span>
+                            <div>
+                                <strong>Ubicación</strong>
+                                <p>${juego.ubicacion}</p>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <span class="icono">${juego.esLocal ? '🏠' : '✈️'}</span>
+                            <div>
+                                <strong>Tipo</strong>
+                                <p>${juego.esLocal ? 'Juego Local' : 'Juego Visitante'}</p>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <span class="icono">⚾</span>
+                            <div>
+                                <strong>Innings</strong>
+                                <p>${juego.innings} innings</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="seccion-estadisticas">
+                        <h3>🏆 Estadísticas de Bateo</h3>
+                        <div class="tabla-container">
+                            <table class="tabla-estadisticas">
+                                <thead>
+                                    <tr>
+                                        <th>👤 Jugador</th>
+                                        <th>📍 Pos</th>
+                                        <th>⚾ AB</th>
+                                        <th>🎯 H</th>
+                                        <th>1️⃣ 1B</th>
+                                        <th>2️⃣ 2B</th>
+                                        <th>3️⃣ 3B</th>
+                                        <th>💥 HR</th>
+                                        <th>🏃 RBI</th>
+                                        <th>📊 AVG</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${jugadores.map(jugador => {
+                                        const avg = jugador.turnosAlBate > 0 ? (jugador.hits / jugador.turnosAlBate).toFixed(3) : '.000';
+                                        return `
+                                            <tr>
+                                                <td class="nombre-jugador">${jugador.nombre}</td>
+                                                <td class="posicion">${jugador.posicion || 'N/A'}</td>
+                                                <td>${jugador.turnosAlBate}</td>
+                                                <td class="stat-destacada">${jugador.hits}</td>
+                                                <td>${jugador.sencillos}</td>
+                                                <td>${jugador.dobles}</td>
+                                                <td>${jugador.triples}</td>
+                                                <td class="home-run">${jugador.homeRuns}</td>
+                                                <td class="rbi">${jugador.rbi}</td>
+                                                <td class="promedio">${avg}</td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-footer-detalle">
+                    <button onclick="cerrarModalSimple()" class="btn-cerrar-modal">
+                        <span>✓</span> Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+function cerrarModalSimple(event) {
+    if (event && event.target !== event.currentTarget) return;
+    
+    const modal = document.getElementById('modal-detalles');
+    if (modal) {
+        modal.remove();
+    }
+}
 
         // Inicializar la aplicación
         document.addEventListener('DOMContentLoaded', function () {

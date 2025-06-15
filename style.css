@@ -313,3 +313,420 @@ body {
         text-align: center;
     }
 }
+
+/* Modal Overlay */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Modal Principal */
+.modal-detalle {
+    background: #ffffff;
+    border-radius: 8px;
+    width: 95%;
+    max-width: 1000px;
+    max-height: 90vh;
+    overflow: hidden;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    animation: modalSlideIn 0.4s ease-out;
+    border: 1px solid #e5e7eb;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-30px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Header del Modal */
+.modal-header-detalle {
+    background: #ffffff;
+    padding: 20px 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e5e7eb;
+    position: relative;
+}
+
+.titulo-juego h2 {
+    color: #1f2937;
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 600;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.fecha-juego {
+    color: #6b7280;
+    margin: 4px 0 0 0;
+    font-size: 0.95rem;
+    font-weight: 400;
+}
+
+.btn-cerrar {
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    color: #6b7280;
+    font-size: 18px;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.btn-cerrar:hover {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+/* Contenido del Modal */
+.contenido-modal {
+    padding: 25px;
+    overflow-y: auto;
+    max-height: calc(90vh - 120px);
+    background: #f9fafb;
+}
+
+/* Sección del Resultado */
+.resultado-juego {
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.marcador {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 40px;
+    margin-bottom: 16px;
+}
+
+.equipo-casa, .equipo-visitante {
+    text-align: center;
+    flex: 1;
+    max-width: 160px;
+}
+
+.equipo-casa h3, .equipo-visitante h3 {
+    color: #374151;
+    margin: 0 0 8px 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.score-grande {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 8px 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.vs-separator {
+    background: #f3f4f6;
+    color: #6b7280;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px solid #e5e7eb;
+}
+
+.resultado-badge {
+    text-align: center;
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 12px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.resultado-badge.victoria {
+    background: #10b981;
+    color: white;
+}
+
+.resultado-badge.derrota {
+    background: #ef4444;
+    color: white;
+}
+
+/* Información del Juego */
+.info-juego {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.info-item {
+    background: #ffffff;
+    padding: 16px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.info-item .icono {
+    font-size: 1.25rem;
+    width: 32px;
+    text-align: center;
+}
+
+.info-item strong {
+    color: #374151;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+    display: block;
+    font-weight: 600;
+}
+
+.info-item p {
+    color: #1f2937;
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+/* Sección de Estadísticas */
+.seccion-estadisticas {
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 0;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.seccion-estadisticas h3 {
+    color: #dc2626;
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f9fafb;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Tabla de Estadísticas - Estilo ESPN/MLB */
+.tabla-container {
+    overflow-x: auto;
+}
+
+.tabla-estadisticas {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.tabla-estadisticas th {
+    background: #f3f4f6;
+    color: #374151;
+    padding: 12px 8px;
+    text-align: center;
+    font-weight: 600;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.tabla-estadisticas th:first-child {
+    text-align: left;
+    padding-left: 16px;
+}
+
+.tabla-estadisticas td {
+    padding: 10px 8px;
+    text-align: center;
+    color: #1f2937;
+    border-bottom: 1px solid #f3f4f6;
+    font-weight: 400;
+}
+
+.tabla-estadisticas tbody tr:hover {
+    background: #f9fafb;
+}
+
+.tabla-estadisticas tbody tr:nth-child(even) {
+    background: #fafbfc;
+}
+
+.tabla-estadisticas tbody tr:nth-child(even):hover {
+    background: #f3f4f6;
+}
+
+/* Estilos especiales para celdas */
+.nombre-jugador {
+    font-weight: 500 !important;
+    color: #1f2937 !important;
+    text-align: left !important;
+    padding-left: 16px !important;
+}
+
+.nombre-jugador::before {
+    content: '';
+    display: inline-block;
+    width: 4px;
+    height: 4px;
+    background: #dc2626;
+    border-radius: 50%;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+.posicion {
+    color: #6b7280 !important;
+    font-weight: 500 !important;
+    font-size: 0.8rem !important;
+}
+
+.stat-destacada {
+    color: #1f2937 !important;
+    font-weight: 600 !important;
+}
+
+.home-run {
+    color: #1f2937 !important;
+    font-weight: 600 !important;
+}
+
+.rbi {
+    color: #1f2937 !important;
+    font-weight: 600 !important;
+}
+
+.promedio {
+    color: #1f2937 !important;
+    font-weight: 600 !important;
+    font-family: 'Courier New', monospace !important;
+}
+
+/* Fila de Totales */
+.tabla-estadisticas tfoot tr {
+    background: #f3f4f6 !important;
+    border-top: 2px solid #e5e7eb;
+}
+
+.tabla-estadisticas tfoot td {
+    font-weight: 600 !important;
+    color: #1f2937 !important;
+    padding: 12px 8px !important;
+}
+
+/* Footer del Modal */
+.modal-footer-detalle {
+    background: #f9fafb;
+    padding: 16px 25px;
+    text-align: center;
+    border-top: 1px solid #e5e7eb;
+}
+
+.btn-cerrar-modal {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.btn-cerrar-modal:hover {
+    background: #e5e7eb;
+    border-color: #9ca3af;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .modal-detalle {
+        width: 98%;
+        margin: 1%;
+        border-radius: 6px;
+    }
+    
+    .contenido-modal {
+        padding: 16px;
+    }
+    
+    .marcador {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .vs-separator {
+        transform: rotate(90deg);
+        margin: 8px 0;
+    }
+    
+    .score-grande {
+        font-size: 2rem;
+    }
+    
+    .info-juego {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .tabla-estadisticas {
+        font-size: 0.75rem;
+    }
+    
+    .tabla-estadisticas th,
+    .tabla-estadisticas td {
+        padding: 8px 4px;
+    }
+    
+    .nombre-jugador {
+        padding-left: 8px !important;
+    }
+    
+    .titulo-juego h2 {
+        font-size: 1.5rem;
+    }
+}
