@@ -614,6 +614,1047 @@
             console.log('Editar jugador:', jugadorId);
         }
 
+        // Función para mostrar la ventana de selección de jugadores
+function mostrarModalSeleccionJugador() {
+    const modalHTML = `
+        <div id="modal-seleccion-jugador" class="modal-overlay" onclick="cerrarModalSeleccion(event)">
+            <div class="modal-detalle modal-seleccion-grande">
+                <div class="modal-header-detalle">
+                    <div class="titulo-juego">
+                        <h2>👥 Seleccionar Jugador</h2>
+                        <p>Elige un jugador para ver sus estadísticas completas</p>
+                    </div>
+                    <button class="btn-cerrar" onclick="cerrarModalSeleccion()">&times;</button>
+                </div>
+                
+                <div class="contenido-modal contenido-seleccion">
+                    <div id="lista-jugadores-modal" class="lista-jugadores-mejorada">
+                        <div class="loading-jugadores">
+                            <div class="spinner-small"></div>
+                            <p>Cargando jugadores...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-footer-detalle">
+                    <button onclick="cerrarModalSeleccion()" class="btn-cerrar-modal">
+                        <span>✗</span> Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    cargarJugadoresEnModal();
+}
+
+// Función para cargar la lista de jugadores en el modal
+async function cargarJugadoresEnModal() {
+    try {
+        console.log('Intentando cargar jugadores...');
+        const jugadoresSnapshot = await db.collection('jugadores').get();
+        console.log('Jugadores encontrados:', jugadoresSnapshot.size);
+        
+        const listaContainer = document.getElementById('lista-jugadores-modal');
+        
+        if (jugadoresSnapshot.empty) {
+            console.log('No hay jugadores en la base de datos');
+            listaContainer.innerHTML = `
+                <div class="no-datos-mejorado">
+                    <h4>📭 No hay jugadores registrados</h4>
+                    <p>Agrega jugadores desde la sección de Roster para poder ver sus estadísticas.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Cargar posiciones para mostrar el nombre de la posición
+        const posicionesSnapshot = await db.collection('posiciones').get();
+        const posicionesMap = {};
+        posicionesSnapshot.forEach(doc => {
+            posicionesMap[doc.id] = doc.data().nombre;
+        });
+        
+        // Agrupar jugadores por posición
+        const jugadoresPorPosicion = {};
+        jugadoresSnapshot.forEach(doc => {
+            const jugador = doc.data();
+            const nombrePosicion = jugador.posicionPrimariaId ? 
+                posicionesMap[jugador.posicionPrimariaId] || 'Sin posición' : 
+                'Sin posición';
+            
+            if (!jugadoresPorPosicion[nombrePosicion]) {
+                jugadoresPorPosicion[nombrePosicion] = [];
+            }
+            
+            jugadoresPorPosicion[nombrePosicion].push({
+                id: doc.id,
+                ...jugador,
+                posicionNombre: nombrePosicion
+            });
+        });
+        
+        // Generar HTML agrupado por posición
+        let jugadoresHTML = '';
+        
+        Object.keys(jugadoresPorPosicion).sort().forEach(posicion => {
+            const jugadoresPosicion = jugadoresPorPosicion[posicion];
+            
+            jugadoresHTML += `
+                <div class="position-group">
+                    <div class="position-header">
+                        <div class="position-title">${posicion}</div>
+                    </div>
+            `;
+            
+            jugadoresPosicion.forEach(jugador => {
+                const nombreCompleto = jugador.apellido ? 
+                    `${jugador.nombre} ${jugador.apellido}` : 
+                    jugador.nombre;
+                
+                jugadoresHTML += `
+                    <div class="player-card-new" onclick="mostrarEstadisticasJugador('${jugador.id}', '${nombreCompleto}')">
+                        <div class="player-info-new">
+                            <div class="player-number-new">#${jugador.numeroJugador || '??'}</div>
+                            <div class="player-details-new">
+                                <div class="player-name-new">
+                                    👤 ${nombreCompleto}
+                                </div>
+                                <div class="player-position-new">${posicion}</div>
+                            </div>
+                            <button class="stats-button-new" onclick="event.stopPropagation(); mostrarEstadisticasJugador('${jugador.id}', '${nombreCompleto}')">
+                                Ver Stats
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            jugadoresHTML += `</div>`;
+        });
+        
+        listaContainer.innerHTML = jugadoresHTML;
+        console.log('HTML de jugadores generado');
+    } catch (error) {
+        console.error('Error al cargar jugadores:', error);
+        const listaContainer = document.getElementById('lista-jugadores-modal');
+        if (listaContainer) {
+            listaContainer.innerHTML = `
+                <div class="error-mejorado">
+                    <h4>❌ Error al cargar jugadores</h4>
+                    <p>${error.message}</p>
+                    <button onclick="cargarJugadoresEnModal()" class="btn-ver" style="margin-top: 1rem;">
+                        🔄 Reintentar
+                    </button>
+                </div>
+            `;
+        }
+    }
+}
+
+// Función para mostrar las estadísticas completas de un jugador
+async function mostrarEstadisticasJugador(jugadorId, nombreJugador) {
+    try {
+        // Cerrar el modal de selección
+        cerrarModalSeleccion();
+        
+        // Mostrar loading
+        mostrarLoading();
+        
+        // Obtener todas las estadísticas del jugador
+        const estadisticasSnapshot = await db.collection('estadisticas-bateo')
+            .where('jugadorId', '==', jugadorId)
+            .get();
+        
+        if (estadisticasSnapshot.empty) {
+            cerrarLoading();
+            mostrarMensaje('Este jugador no tiene estadísticas registradas', 'info');
+            return;
+        }
+        
+        // Obtener los datos de los juegos para cada estadística usando tu lógica
+        const estadisticasConJuegos = [];
+        let totales = {
+            juegos: 0,
+            turnosAlBate: 0,
+            hits: 0,
+            sencillos: 0,
+            dobles: 0,
+            triples: 0,
+            homeRuns: 0,
+            rbi: 0
+        };
+        
+        for (const doc of estadisticasSnapshot.docs) {
+            const estadistica = { id: doc.id, ...doc.data() };
+            
+            // Obtener datos del juego
+            const juegoDoc = await db.collection('juegos').doc(estadistica.juegoId).get();
+            
+            if (juegoDoc.exists) {
+                const juego = juegoDoc.data();
+                
+                // Obtener nombre del equipo contrario
+                let nombreEquipoContrario = 'Contrario';
+                if (juego.equipoContrarioId) {
+                    const equipoDoc = await db.collection('equipos-contrarios').doc(juego.equipoContrarioId).get();
+                    if (equipoDoc.exists) {
+                        nombreEquipoContrario = equipoDoc.data().nombre;
+                    }
+                }
+                
+                estadisticasConJuegos.push({
+                    ...estadistica,
+                    juego: juego,
+                    fecha: juego.fecha,
+                    equipoContrario: nombreEquipoContrario,
+                    turnosAlBate: estadistica.turnosAlBate || 0,
+                    hits: estadistica.hits || 0,
+                    sencillos: estadistica.sencillos || 0,
+                    dobles: estadistica.dobles || 0,
+                    triples: estadistica.triples || 0,
+                    homeRuns: estadistica.homeRuns || 0,
+                    rbi: estadistica.rbi || 0
+                });
+                
+                // Sumar a los totales
+                totales.juegos++;
+                totales.turnosAlBate += estadistica.turnosAlBate || 0;
+                totales.hits += estadistica.hits || 0;
+                totales.sencillos += estadistica.sencillos || 0;
+                totales.dobles += estadistica.dobles || 0;
+                totales.triples += estadistica.triples || 0;
+                totales.homeRuns += estadistica.homeRuns || 0;
+                totales.rbi += estadistica.rbi || 0;
+            }
+        }
+        
+        // Ordenar por fecha (más reciente primero)
+        estadisticasConJuegos.sort((a, b) => b.fecha.toDate() - a.fecha.toDate());
+        
+        cerrarLoading();
+        mostrarModalEstadisticasJugador(nombreJugador, estadisticasConJuegos, totales);
+        
+    } catch (error) {
+        console.error('Error al cargar estadísticas del jugador:', error);
+        cerrarLoading();
+        mostrarMensaje('Error al cargar las estadísticas del jugador: ' + error.message, 'error');
+    }
+}
+
+// Función para mostrar el modal con todas las estadísticas del jugador
+function mostrarModalEstadisticasJugador(nombreJugador, estadisticas, totales) {
+    const promedioGeneral = totales.turnosAlBate > 0 ? (totales.hits / totales.turnosAlBate).toFixed(3) : '.000';
+    
+    const modalHTML = `
+        <div id="modal-estadisticas-jugador" class="modal-overlay" onclick="cerrarModalEstadisticas(event)">
+            <div class="modal-detalle" style="max-width: 1200px; max-height: 90vh; overflow-y: auto;">
+                <div class="modal-header-detalle">
+                    <div class="titulo-juego">
+                        <h2>📊 Estadísticas de ${nombreJugador}</h2>
+                        <p>Historial completo de rendimiento</p>
+                    </div>
+                    <button class="btn-cerrar" onclick="cerrarModalEstadisticas()">&times;</button>
+                </div>
+                
+                <div class="contenido-modal">
+                    <!-- Resumen de totales -->
+                    <div class="resumen-totales">
+                        <h3>🏆 Resumen de Temporada</h3>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-numero">${totales.juegos}</div>
+                                <div class="stat-label">Juegos</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-numero">${totales.turnosAlBate}</div>
+                                <div class="stat-label">Turnos al Bate</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-numero">${totales.hits}</div>
+                                <div class="stat-label">Hits</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-numero">${totales.homeRuns}</div>
+                                <div class="stat-label">Home Runs</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-numero">${totales.rbi}</div>
+                                <div class="stat-label">RBI</div>
+                            </div>
+                            <div class="stat-card destacada">
+                                <div class="stat-numero">${promedioGeneral}</div>
+                                <div class="stat-label">Promedio</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Historial detallado -->
+                    <div class="seccion-estadisticas">
+                        <h3>📋 Historial por Juego</h3>
+                        <div class="tabla-container">
+                            <table class="tabla-estadisticas">
+                                <thead>
+                                    <tr>
+                                        <th>📅 Fecha</th>
+                                        <th>🆚 Vs</th>
+                                        <th>📍 Ubicación</th>
+                                        <th>⚾ AB</th>
+                                        <th>🎯 H</th>
+                                        <th>1️⃣ 1B</th>
+                                        <th>2️⃣ 2B</th>
+                                        <th>3️⃣ 3B</th>
+                                        <th>💥 HR</th>
+                                        <th>🏃 RBI</th>
+                                        <th>📊 AVG</th>
+                                        <th>🏆 Resultado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${estadisticas.map(stat => {
+                                        const fecha = stat.fecha.toDate().toLocaleDateString('es-ES', {
+                                            day: '2-digit',
+                                            month: '2-digit',
+                                            year: 'numeric'
+                                        });
+                                        const avg = stat.turnosAlBate > 0 ? (stat.hits / stat.turnosAlBate).toFixed(3) : '.000';
+                                        const resultado = stat.juego.ganado ? 'W' : 'L';
+                                        const resultadoClass = stat.juego.ganado ? 'victoria' : 'derrota';
+                                        
+                                        return `
+                                            <tr>
+                                                <td>${fecha}</td>
+                                                <td class="vs-column">${stat.equipoContrario || 'Contrario'}</td>
+                                                <td>${stat.juego.ubicacion}</td>
+                                                <td>${stat.turnosAlBate}</td>
+                                                <td class="stat-destacada">${stat.hits}</td>
+                                                <td>${stat.sencillos || 0}</td>
+                                                <td>${stat.dobles || 0}</td>
+                                                <td>${stat.triples || 0}</td>
+                                                <td class="home-run">${stat.homeRuns || 0}</td>
+                                                <td class="rbi">${stat.rbi || 0}</td>
+                                                <td class="promedio">${avg}</td>
+                                                <td class="resultado ${resultadoClass}">${resultado}</td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-footer-detalle">
+                    <button onclick="cerrarModalEstadisticas()" class="btn-cerrar-modal">
+                        <span>✓</span> Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    agregarEstilosEstadisticas();
+}
+
+// Función para agregar los estilos CSS específicos
+function agregarEstilosEstadisticas() {
+    if (document.getElementById('estilos-estadisticas-jugador')) return; // Ya están agregados
+    
+    const estilosEstadisticas = `
+        <style id="estilos-estadisticas-jugador">
+            .resumen-totales {
+                background: #f8f9fa;
+                border: 1px solid #dee2e6;
+                padding: 2rem;
+                border-radius: 8px;
+                margin-bottom: 2rem;
+                color: #333;
+            }
+            
+            .resumen-totales h3 {
+                color: #2c3e50;
+                margin-bottom: 1.5rem;
+                font-size: 1.3rem;
+                font-weight: 600;
+            }
+            
+            .stats-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                gap: 1rem;
+                margin-top: 1rem;
+            }
+            
+            .stat-card {
+                background: white;
+                padding: 1.2rem;
+                border-radius: 6px;
+                text-align: center;
+                border: 1px solid #e0e0e0;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            }
+            
+            .stat-card.destacada {
+                background: #fff3cd;
+                border: 1px solid #ffeaa7;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+            }
+            
+            .stat-numero {
+                font-size: 1.8rem;
+                font-weight: bold;
+                margin-bottom: 0.3rem;
+                color: #2c3e50;
+            }
+            
+            .stat-label {
+                font-size: 0.85rem;
+                color: #6c757d;
+                font-weight: 500;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            
+            .jugador-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 1.5rem;
+                margin-bottom: 0.8rem;
+                background: white;
+                border: 2px solid #e9ecef;
+                border-radius: 12px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            }
+            
+            .jugador-item:hover {
+                background: #f8f9fa;
+                border-color: #007bff;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 15px rgba(0,123,255,0.15);
+            }
+            
+            .jugador-info {
+                flex-grow: 1;
+            }
+            
+            .jugador-info h4 {
+                margin: 0 0 0.5rem 0;
+                color: #2c3e50;
+                font-size: 1.2rem;
+                font-weight: 700;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+            
+            .jugador-numero {
+                background: #007bff;
+                color: white;
+                padding: 0.2rem 0.6rem;
+                border-radius: 6px;
+                font-size: 0.9rem;
+                font-weight: bold;
+                min-width: 45px;
+                text-align: center;
+            }
+            
+            .jugador-info p {
+                margin: 0;
+                color: #6c757d;
+                font-size: 1rem;
+                font-weight: 500;
+                display: flex;
+                align-items: center;
+                gap: 0.3rem;
+            }
+            
+            .btn-ver {
+                background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+                color: white;
+                padding: 0.8rem 1.5rem;
+                border-radius: 8px;
+                font-size: 1rem;
+                font-weight: 600;
+                border: none;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                box-shadow: 0 2px 8px rgba(0,123,255,0.3);
+                min-width: 160px;
+            }
+            
+            .btn-ver:hover {
+                background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(0,123,255,0.4);
+            }
+            
+            /* Estilos basados en tu diseño mejorado */
+            .lista-jugadores-mejorada {
+                max-height: 500px;
+                overflow-y: auto;
+                padding: 20px;
+                background: #f8fafc;
+            }
+            
+            /* Grupos de posición */
+            .position-group {
+                margin-bottom: 24px;
+            }
+            
+            .position-header {
+                background: #e2e8f0;
+                padding: 12px 16px;
+                border-radius: 8px;
+                margin-bottom: 12px;
+            }
+            
+            .position-title {
+                font-size: 14px !important;
+                font-weight: 600 !important;
+                color: #374151 !important;
+                text-transform: uppercase !important;
+                letter-spacing: 0.5px !important;
+                margin: 0 !important;
+            }
+            
+            /* Tarjetas de jugador estilo nuevo */
+            .player-card-new {
+                background: white !important;
+                border: 2px solid #e5e7eb !important;
+                border-radius: 10px !important;
+                padding: 16px !important;
+                margin-bottom: 12px !important;
+                cursor: pointer !important;
+                transition: all 0.2s ease !important;
+                position: relative !important;
+            }
+            
+            .player-card-new:hover {
+                border-color: #1e3a8a !important;
+                box-shadow: 0 4px 12px rgba(30, 58, 138, 0.15) !important;
+                transform: translateY(-2px) !important;
+            }
+            
+            .player-info-new {
+                display: flex !important;
+                align-items: center !important;
+                gap: 16px !important;
+            }
+            
+            .player-number-new {
+                background: #374151 !important;
+                color: white !important;
+                width: 48px !important;
+                height: 48px !important;
+                border-radius: 50% !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                font-size: 16px !important;
+                font-weight: 700 !important;
+                flex-shrink: 0 !important;
+            }
+            
+            .player-details-new {
+                flex: 1 !important;
+            }
+            
+            .player-name-new {
+                font-size: 17px !important;
+                font-weight: 600 !important;
+                color: #111827 !important;
+                margin-bottom: 4px !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 8px !important;
+            }
+            
+            .player-position-new {
+                font-size: 14px !important;
+                color: #6b7280 !important;
+                font-weight: 500 !important;
+            }
+            
+            .position-icon-new {
+                width: 20px !important;
+                height: 20px !important;
+                flex-shrink: 0 !important;
+            }
+            
+            .stats-button-new {
+                background: #1e3a8a !important;
+                color: white !important;
+                border: none !important;
+                padding: 8px 16px !important;
+                border-radius: 6px !important;
+                font-size: 13px !important;
+                font-weight: 600 !important;
+                cursor: pointer !important;
+                transition: background-color 0.2s !important;
+                text-transform: uppercase !important;
+                letter-spacing: 0.5px !important;
+            }
+            
+            .stats-button-new:hover {
+                background: #1e40af !important;
+            }
+            
+            .stats-button-new:focus {
+                outline: 2px solid #3b82f6 !important;
+                outline-offset: 2px !important;
+            }
+            
+            /* Modal header mejorado */
+            .modal-header-detalle {
+                background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%) !important;
+                color: white !important;
+                padding: 24px !important;
+                text-align: center !important;
+                border-radius: 12px 12px 0 0 !important;
+            }
+            
+            .titulo-juego h2 {
+                font-size: 20px !important;
+                font-weight: 600 !important;
+                margin-bottom: 8px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 12px !important;
+                color: white !important;
+            }
+            
+            .titulo-juego p {
+                font-size: 15px !important;
+                opacity: 0.9 !important;
+                font-weight: 400 !important;
+                color: white !important;
+                margin: 0 !important;
+            }
+            
+            .btn-cerrar {
+                background: rgba(255, 255, 255, 0.2) !important;
+                color: white !important;
+                border: none !important;
+                width: 32px !important;
+                height: 32px !important;
+                border-radius: 50% !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                cursor: pointer !important;
+                transition: all 0.2s ease !important;
+                position: absolute !important;
+                top: 16px !important;
+                right: 16px !important;
+                font-size: 18px !important;
+            }
+            
+            .btn-cerrar:hover {
+                background: rgba(255, 255, 255, 0.3) !important;
+                transform: scale(1.1) !important;
+            }
+            
+            /* Modal mejorado */
+            .modal-seleccion-grande {
+                max-width: 600px !important;
+                width: 90% !important;
+                max-height: 85vh !important;
+                background: white !important;
+                border-radius: 12px !important;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+                overflow: hidden !important;
+            }
+            
+            .contenido-seleccion {
+                padding: 0 !important;
+            }
+            
+            /* Scrollbar personalizado */
+            .lista-jugadores-mejorada::-webkit-scrollbar {
+                width: 8px;
+            }
+            
+            .lista-jugadores-mejorada::-webkit-scrollbar-track {
+                background: #f1f5f9;
+                border-radius: 4px;
+            }
+            
+            .lista-jugadores-mejorada::-webkit-scrollbar-thumb {
+                background: #cbd5e1;
+                border-radius: 4px;
+            }
+            
+            .lista-jugadores-mejorada::-webkit-scrollbar-thumb:hover {
+                background: #94a3b8;
+            }
+            
+            /* Custom scrollbar */
+            .lista-jugadores-mejorada::-webkit-scrollbar {
+                width: 8px;
+            }
+            
+            .lista-jugadores-mejorada::-webkit-scrollbar-track {
+                background: #f1f1f1;
+                border-radius: 4px;
+            }
+            
+            .lista-jugadores-mejorada::-webkit-scrollbar-thumb {
+                background: #c1c1c1;
+                border-radius: 4px;
+            }
+            
+            .lista-jugadores-mejorada::-webkit-scrollbar-thumb:hover {
+                background: #a8a8a8;
+            }
+            
+            .loading-jugadores {
+                text-align: center;
+                padding: 3rem;
+                color: #6c757d;
+            }
+            
+            .spinner-small {
+                border: 3px solid #f3f3f3;
+                border-top: 3px solid #007bff;
+                border-radius: 50%;
+                width: 30px;
+                height: 30px;
+                animation: spin 1s linear infinite;
+                margin: 0 auto 1rem auto;
+            }
+            
+            .no-datos-mejorado {
+                text-align: center;
+                padding: 3rem;
+                color: #6c757d;
+                background: #f8f9fa;
+                border-radius: 12px;
+                border: 2px dashed #dee2e6;
+            }
+            
+            .no-datos-mejorado h4 {
+                color: #495057;
+                margin-bottom: 1rem;
+                font-size: 1.2rem;
+            }
+            
+            .error-mejorado {
+                text-align: center;
+                padding: 2rem;
+                color: #721c24;
+                background: #f8d7da;
+                border: 2px solid #f5c6cb;
+                border-radius: 12px;
+            }
+            
+            /* Estilos de tabla mejorados */
+            .seccion-estadisticas h3 {
+                color: #2c3e50;
+                margin-bottom: 1rem;
+                font-size: 1.2rem;
+                font-weight: 600;
+            }
+            
+            .tabla-container {
+                background: white;
+                border-radius: 6px;
+                overflow: hidden;
+                border: 1px solid #dee2e6;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            }
+            
+            .tabla-estadisticas {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 0.9rem;
+            }
+            
+            .tabla-estadisticas thead th {
+                background: #495057;
+                color: white;
+                padding: 0.75rem 0.5rem;
+                text-align: center;
+                font-weight: 600;
+                font-size: 0.8rem;
+                border-bottom: 2px solid #343a40;
+            }
+            
+            .tabla-estadisticas tbody td {
+                padding: 0.7rem 0.5rem;
+                text-align: center;
+                border-bottom: 1px solid #e9ecef;
+                color: #495057;
+                font-weight: 500;
+            }
+            
+            .tabla-estadisticas tbody tr:nth-child(even) {
+                background-color: #f8f9fa;
+            }
+            
+            .tabla-estadisticas tbody tr:hover {
+                background-color: #e3f2fd;
+            }
+            
+            .stat-destacada {
+                font-weight: bold;
+                color: #007bff;
+            }
+            
+            .home-run {
+                font-weight: bold;
+                color: #dc3545;
+            }
+            
+            .rbi {
+                font-weight: bold;
+                color: #28a745;
+            }
+            
+            .promedio {
+                font-weight: bold;
+                color: #6f42c1;
+            }
+            
+            .vs-column {
+                font-weight: 600;
+                color: #495057;
+            }
+            
+            .resultado.victoria {
+                background: #28a745;
+                color: white;
+                padding: 0.2rem 0.4rem;
+                border-radius: 3px;
+                font-weight: bold;
+                font-size: 0.8rem;
+            }
+            
+            .resultado.derrota {
+                background: #dc3545;
+                color: white;
+                padding: 0.2rem 0.4rem;
+                border-radius: 3px;
+                font-weight: bold;
+                font-size: 0.8rem;
+            }
+            
+            .lista-jugadores {
+                max-height: 400px;
+                overflow-y: auto;
+                padding: 0.5rem;
+            }
+            
+            .no-datos, .error {
+                text-align: center;
+                padding: 2rem;
+                color: #6c757d;
+                background: white;
+                border-radius: 6px;
+                border: 1px solid #e0e0e0;
+            }
+            
+            .error {
+                color: #dc3545;
+                background: #f8d7da;
+                border-color: #f5c6cb;
+            }
+
+            .estadisticas-actions {
+                display: flex;
+                justify-content: center;
+                gap: 1rem;
+            }
+
+            .btn-ver-estadisticas {
+                background: #007bff;
+                color: white;
+                border: none;
+                padding: 0.8rem 1.5rem;
+                border-radius: 6px;
+                font-size: 1rem;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                box-shadow: 0 2px 4px rgba(0,123,255,0.3);
+            }
+
+            .btn-ver-estadisticas:hover {
+                background: #0056b3;
+                transform: translateY(-1px);
+                box-shadow: 0 4px 8px rgba(0,123,255,0.4);
+            }
+
+            .btn-ver-estadisticas span {
+                margin-right: 0.5rem;
+            }
+
+            /* Modal mejorado */
+            .modal-overlay {
+                background: rgba(0, 0, 0, 0.6);
+            }
+            
+            .modal-detalle {
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            }
+            
+            .modal-header-detalle {
+                background: #f8f9fa;
+                border-bottom: 1px solid #dee2e6;
+                border-radius: 8px 8px 0 0;
+                padding: 1.5rem;
+            }
+            
+            .titulo-juego h2 {
+                color: #2c3e50;
+                font-size: 1.4rem;
+                margin: 0;
+                font-weight: 600;
+            }
+            
+            .titulo-juego p {
+                color: #6c757d;
+                margin: 0.5rem 0 0 0;
+                font-size: 0.9rem;
+            }
+            
+            .btn-cerrar {
+                background: none;
+                border: none;
+                font-size: 1.5rem;
+                color: #6c757d;
+                cursor: pointer;
+                padding: 0;
+                width: 30px;
+                height: 30px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 50%;
+                transition: all 0.2s ease;
+            }
+            
+            .btn-cerrar:hover {
+                background: #e9ecef;
+                color: #495057;
+            }
+            
+            .modal-footer-detalle {
+                background: #f8f9fa;
+                border-top: 1px solid #dee2e6;
+                border-radius: 0 0 8px 8px;
+                padding: 1rem 1.5rem;
+                text-align: center;
+            }
+            
+            .btn-cerrar-modal {
+                background: #6c757d;
+                color: white;
+                border: none;
+                padding: 0.5rem 1rem;
+                border-radius: 4px;
+                font-size: 0.9rem;
+                cursor: pointer;
+                transition: background 0.2s ease;
+            }
+            
+            .btn-cerrar-modal:hover {
+                background: #5a6268;
+            }
+
+            /* Estilos para el spinner de loading */
+            .spinner {
+                border: 4px solid #f3f3f3;
+                border-top: 4px solid #007bff;
+                border-radius: 50%;
+                width: 40px;
+                height: 40px;
+                animation: spin 1s linear infinite;
+                margin: 0 auto 1rem auto;
+            }
+
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        </style>
+    `;
+    
+    document.head.insertAdjacentHTML('beforeend', estilosEstadisticas);
+}
+
+// Funciones para cerrar modales
+function cerrarModalSeleccion(event) {
+    if (event && event.target !== event.currentTarget) return;
+    
+    const modal = document.getElementById('modal-seleccion-jugador');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+function cerrarModalEstadisticas(event) {
+    if (event && event.target !== event.currentTarget) return;
+    
+    const modal = document.getElementById('modal-estadisticas-jugador');
+    const estilos = document.getElementById('estilos-estadisticas-jugador');
+    
+    if (modal) modal.remove();
+    if (estilos) estilos.remove();
+}
+
+// Funciones auxiliares para loading y mensajes
+function mostrarLoading() {
+    const loadingHTML = `
+        <div id="loading-overlay" class="modal-overlay">
+            <div style="text-align: center; color: white;">
+                <div class="spinner"></div>
+                <p>Cargando estadísticas...</p>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', loadingHTML);
+}
+
+function cerrarLoading() {
+    const loading = document.getElementById('loading-overlay');
+    if (loading) loading.remove();
+}
+
+function mostrarMensaje(mensaje, tipo = 'info') {
+    const color = tipo === 'error' ? '#dc3545' : '#17a2b8';
+    const icono = tipo === 'error' ? '❌' : 'ℹ️';
+    
+    const mensajeHTML = `
+        <div id="mensaje-temporal" style="
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${color};
+            color: white;
+            padding: 1rem;
+            border-radius: 8px;
+            z-index: 10000;
+            max-width: 300px;
+        ">
+            ${icono} ${mensaje}
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', mensajeHTML);
+    
+    setTimeout(() => {
+        const mensaje = document.getElementById('mensaje-temporal');
+        if (mensaje) mensaje.remove();
+    }, 3000);
+}
         async function verDetallesJuego(juegoId) {
     try {
         // Obtener datos del juego
